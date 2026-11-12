@@ -1,6 +1,7 @@
 # Presence Lens Card
 
 [![HACS Repository](https://img.shields.io/badge/HACS-Repository-41BDF5?style=flat-square)](https://my.home-assistant.io/redirect/hacs_repository/?owner=luigi-regolo&repository=presence-lens-card&category=plugin)
+[![Release](https://img.shields.io/github/v/release/luigi-regolo/presence-lens-card?label=Release&style=flat-square)](https://github.com/luigi-regolo/presence-lens-card/releases/latest)
 [![License: GPL-3.0-only](https://img.shields.io/badge/license-GPL--3.0--only-blue?style=flat-square)](LICENSE)
 [![GitHub Stars](https://img.shields.io/github/stars/luigi-regolo/presence-lens-card?style=flat-square)](https://github.com/luigi-regolo/presence-lens-card/stargazers)
 
@@ -131,6 +132,10 @@ Presence Lens Card operates through Home Assistant entities and the permissions 
 **Presence Lens Card is not a certified safety, intrusion detection or access control system.** The result only reflects the state reported by your sensor.
 
 Unknown, unavailable, or missing information must not be interpreted as confirmation that nobody is present.
+
+## Releases
+
+Published versions are available through [GitHub Releases](https://github.com/luigi-regolo/presence-lens-card/releases).
 
 ## Copyright & License
 
