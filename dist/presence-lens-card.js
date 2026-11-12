@@ -458,6 +458,13 @@ ha-icon{display:block;flex:none;margin:0;--mdc-icon-size:20px;width:20px;height:
       return parts.join('|');
     }
 
+    _histExpected() {
+      const h = this._hass;
+      if (!h || this._hist || !this._wantsHistory() || typeof h.callWS !== 'function') return false;
+      if (h.config && Array.isArray(h.config.components) && h.config.components.indexOf('history') < 0 && h.config.components.indexOf('recorder') < 0) return false;
+      if (this._histFail && this._now() - this._histFail < HIST_RETRY) return false;
+      return true;
+    }
     _wantsHistory() { return !!this._cfg && !!this._cfg.entity && (this._cfg.show_strip || this._cfg.panel !== 'none' || this._popup); }
     _ensureHistory(force) {
       const h = this._hass, c = this._cfg;
@@ -482,10 +489,11 @@ ha-icon{display:block;flex:none;margin:0;--mdc-icon-size:20px;width:20px;height:
     }
 
     /* ---- markup ---- */
-    _panelItems(m, d, T) {
+    _panelItems(m, d, T, pend) {
       const items = [];
       if (m.hasDist) items.push([m.state === 'on' && m.dist != null ? this._fmtM(m.dist) : '—', T.distance]);
       if (d && d.occ != null) items.push([d.occ + '%', str(this._cfg.occupancy_label) || T.occupancy]);
+      else if (pend) items.push(['—', str(this._cfg.occupancy_label) || T.occupancy]);
       return items;
     }
     _cardHTML(m) {
@@ -494,6 +502,7 @@ ha-icon{display:block;flex:none;margin:0;--mdc-icon-size:20px;width:20px;height:
         return '<div class="wrap"><article class="lens err"><div class="title">' + esc(T.missing) + '</div><div class="sub" style="white-space:normal">' + esc(T.missing_hint) + '</div><code>' + esc(c.entity) + '</code></article></div>';
       }
       const segs = m.segs, d = segs && segs.length ? derive(segs, m.now) : null;
+      const pend = !d && this._histExpected();
       const title = cleanTitle(c.title) || T.title_default;
       const head = (c.show_eyebrow || c.show_title)
         ? '<div class="head">' + (c.show_eyebrow && c.eyebrow ? '<div class="eyebrow">' + esc(c.eyebrow) + '</div>' : '') + (c.show_title ? '<div class="title">' + esc(title) + '<b>.</b></div>' : '') + '</div>'
@@ -507,7 +516,7 @@ ha-icon{display:block;flex:none;margin:0;--mdc-icon-size:20px;width:20px;height:
       const sVal = timeFmt ? this._clock(m.since, m.now, true) : this._fmtDur(m.now - m.since);
       let extra = '';
       if (c.panel !== 'none') {
-        const items = this._panelItems(m, d, T);
+        const items = this._panelItems(m, d, T, pend);
         if (c.panel === 'radar' && m.hasDist) {
           extra = '<div class="rpanel xtra">' + radarSVG(m, T, (v) => this._fmtM(v), true) + '<div class="rside">' +
             items.map((it) => '<div><div class="n">' + esc(it[0]) + '</div><div class="l">' + esc(it[1]) + '</div></div>').join('') + '</div></div>';
@@ -515,8 +524,10 @@ ha-icon{display:block;flex:none;margin:0;--mdc-icon-size:20px;width:20px;height:
           extra = '<div class="tiles xtra' + (items.length === 1 ? ' one' : '') + '">' + items.map((it) => '<div class="tile"><div class="n">' + esc(it[0]) + '</div><div class="l">' + esc(it[1]) + '</div></div>').join('') + '</div>';
         }
       }
-      const showStrip = c.show_strip && segs && segs.length;
-      const strip = showStrip
+      const showStrip = c.show_strip && ((segs && segs.length) || pend);
+      const strip = showStrip && !d
+        ? '<div class="sbox"><div class="shd"><span>' + esc(T.last24) + '</span><b>—</b></div><div class="strip" role="img" aria-label="' + esc(T.strip_alt) + '"><i class="s-off" style="flex:1 1 0"></i></div></div>'
+        : showStrip
         ? '<div class="sbox"><div class="shd"><span>' + esc(T.last24) + '</span><b>' + d.detections + ' ' + esc(T.detections) + '</b></div>' +
           '<div class="strip" role="img" aria-label="' + esc(T.strip_alt) + '">' + segs.map((x) => '<i class="s-' + x.st + '" style="flex:' + Math.max(1, x.end - x.start) + ' 1 0"></i>').join('') + '</div></div>'
         : '';
