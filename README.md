@@ -6,70 +6,136 @@
 
 ## Overview
 
-A modern Home Assistant card for presence and radar sensors. It shows the current state, how long the sensor has been in that state, a mini radar of the detected distance and a popup with the last 24 hours. The card is read-only: it never sends commands. An unavailable or unknown sensor is never shown as "nobody there".
+**Presence Lens Card** is a custom presence and radar sensor card for Home Assistant, designed with a minimalist, responsive interface inspired by the Edera Light and Dark visual styles.
+
+It answers one question: is anyone in the room, and for how long? The card shows the state of a presence sensor, the time since the last change, a mini radar of the detected distance and the occupancy of the last 24 hours.
+
+From the details popup you can see the 24-hour history, the sensor values and the list of events. The card is read-only and never sends commands. It uses entities already configured in Home Assistant, is not tied to a specific device manufacturer and does not require a dedicated account, paid API, or subscription.
+
+## Preview
+
+<p align="center">
+  <img src="assets/presence-lens-card-light.png" alt="Presence Lens Card — Edera Light preview" width="300" />
+  <img src="assets/presence-lens-card-dark.png" alt="Presence Lens Card — Edera Dark preview" width="300" />
+</p>
+
+<p align="center">
+  <img src="assets/presence-lens-card-popup-light.png" alt="Presence Lens Card — details popup, Edera Light" width="300" />
+  <img src="assets/presence-lens-card-popup-dark.png" alt="Presence Lens Card — details popup, Edera Dark" width="300" />
+</p>
+
+*Presence Lens Card in Edera Light and Dark modes, with its details popup. The previews use demonstration values and do not display private installation data.*
 
 ## Features
 
-- Present, absent and unavailable states, each with its own icon and colour.
-- "Present for / Absent for" as a duration, or as a time ("since 15:35").
-- Mini radar with range rings, minimum range and an arc at the detected distance (needs a distance entity).
-- Optional 24-hour strip on the card, off by default.
-- Details popup: summary of the last 24 hours (detections, occupancy, longest absence, last presence), sensor values, strip and event history with filters.
-- Visual editor, light and dark Edera look, optional label and title.
-- Italian and English texts, chosen from the Home Assistant language.
-- No external scripts, fonts or services.
+- **Presence state:** Present, absent and unavailable, each with its own icon and colour.
+- **Time since the last change:** "Present for" and "Absent for", as a duration or as a time of day.
+- **Mini radar:** Range rings and an arc at the detected distance, with optional minimum and maximum distance entities.
+- **Occupancy:** Percentage of the last 24 hours in which presence was detected.
+- **24-hour strip:** Optional strip on the card, disabled by default.
+- **Details popup:** Last 24 hours summary, sensor values, strip and event history with filters.
+- **Edera appearance:** Automatic, Light, and Dark themes, a compact layout that adapts to the card width, rounded elements, and native Home Assistant icons.
+- **Visual configuration:** Configure sensors, appearance and content through the dashboard editor.
+
+Unavailable or unknown sensors are always reported as "not available" and never shown as an empty room.
 
 ## Installation
 
-### HACS (custom repository)
+### HACS — Custom repository
 
-1. Open HACS, then the menu in the top right and choose **Custom repositories**.
-2. Add `https://github.com/luigi-regolo/presence-lens-card` with category **Dashboard**.
-3. Search for **Presence Lens Card**, download it and reload the browser.
+1. Open **HACS** in Home Assistant.
+2. Select **Custom repositories** from the menu.
+3. Enter `https://github.com/luigi-regolo/presence-lens-card`.
+4. Select **Dashboard** as the repository type and add it.
+5. Find **Presence Lens Card** in HACS and click **Download**.
+6. Reload your dashboard if necessary.
+7. Add **Presence Lens Card** to your dashboard and configure it using the visual editor.
 
 ### Manual installation
 
-1. Copy `dist/presence-lens-card.js` to `/config/www/`.
-2. In **Settings → Dashboards → Resources** add `/local/presence-lens-card.js` as a **JavaScript module**.
+1. Download `dist/presence-lens-card.js` from the GitHub repository.
+2. Copy it to the `www` directory of your Home Assistant configuration as `presence-lens-card.js`.
+3. Open **Settings → Dashboards → Resources** in Home Assistant.
+4. Add the following resource:
+
+   `/local/presence-lens-card.js`
+
+5. Select **JavaScript module** as the resource type.
+6. Reload the dashboard and add the card.
+
+If the `www` directory was just created, Home Assistant may need to be restarted before the file becomes accessible.
 
 ## Configuration and Usage
 
 ### Visual editor
 
-Add the card from the dashboard editor and configure it with the visual editor, in three sections: **Sensor**, **Look** and **Content**. Without an entity the card shows an example.
+Open a dashboard in edit mode, add **Presence Lens Card**, and configure the available sections:
+
+- **Sensore:** Presence sensor, name, and optional distance, minimum distance, maximum distance and sensitivity entities.
+- **Aspetto:** Theme, label and title, central panel and radar range.
+- **Contenuto:** 24-hour strip, "Present for / Absent for" format and occupancy label.
+
+Without a sensor, the card shows an example.
 
 ### Main configuration options
 
-| Option | Default | Description |
-| --- | --- | --- |
-| `entity` | – | Presence sensor (`binary_sensor`). |
-| `name` | – | Name shown in the row. |
-| `distance_entity` | – | Detected distance (`sensor` or `number`). Metres, centimetres and millimetres are converted. |
-| `min_distance_entity` | – | Minimum detection distance. |
-| `max_distance_entity` | – | Maximum detection distance, used as the radar range. |
-| `sensitivity_entity` | – | Sensitivity, shown in the popup. |
-| `panel` | `radar` | `radar`, `tiles` or `none`. |
-| `show_strip` | `false` | 24-hour strip on the card. |
-| `since_format` | `duration` | `duration` or `time`. |
-| `radar_max` | `0` | Radar range in metres when no maximum distance entity is set (`0` = 6 m). |
-| `show_eyebrow`, `eyebrow` | `true`, `PRESENCE LENS CARD` | Top label. |
-| `show_title`, `title` | `true`, empty | Title; empty means "Room occupancy". |
-| `occupancy_label` | empty | Text of the occupancy percentage tile; empty means "Occupancy 24 h". |
-| `theme_mode` | `auto` | `auto`, `light` or `dark`. |
+All options are set from the visual editor. The table lists the field names saved in the card configuration.
 
-## Compatibility / Requirements
+| Option | Description |
+|---|---|
+| `entity` | Presence sensor (`binary_sensor`). |
+| `name` | Name shown in the sensor row. |
+| `distance_entity` | Detected distance (`sensor` or `number`). Distances are always shown in metres. |
+| `min_distance_entity` | Minimum detection distance. |
+| `max_distance_entity` | Maximum detection distance, used as the radar range. |
+| `sensitivity_entity` | Sensitivity, shown in the popup. |
+| `panel` | `radar`, `tiles` or `none`. Default `radar`. The radar needs a distance entity. |
+| `show_strip` | 24-hour strip on the card. Disabled by default. |
+| `since_format` | `duration` or `time`. Default `duration`. |
+| `radar_max` | Radar range in metres when no maximum distance entity is set. Default 6 m. |
+| `eyebrow` / `title` | Small label above the title and card title. The green dot is added by the card. |
+| `show_eyebrow` / `show_title` | Show or hide the label and the title. Enabled by default. |
+| `occupancy_label` | Text of the occupancy tile. |
+| `theme_mode` | `auto`, `light`, or `dark`. |
 
-- Home Assistant dashboards with custom cards (Lovelace resources).
-- History, occupancy and the strip need the Recorder history of the sensor. Without it these parts are hidden and the card still shows the state and the time since the last change.
+Additional settings are available in the visual editor.
+
+## Compatibility and Requirements
+
+Presence Lens Card requires:
+
+- Home Assistant with support for custom JavaScript dashboard cards.
+- A presence, occupancy or motion `binary_sensor`.
+- HACS only when using the HACS installation method.
+
+Occupancy, the 24-hour strip and the event history require the Recorder history of the sensor. Without it these parts are hidden and the card still shows the state and the time since the last change.
+
+The card interface follows the Home Assistant language, in Italian or English.
+
+No specific minimum Home Assistant version has been independently verified for this repository.
+
+The card does not require a dedicated paid service or additional remote JavaScript libraries.
 
 ## Privacy and Security
 
-The card is read-only and never calls a service or sends commands. It only reads the configured entities and, for the 24-hour history, the Recorder history through Home Assistant. It loads no external scripts, fonts or assets and sends nothing outside Home Assistant.
+Presence Lens Card operates through Home Assistant entities and the permissions of the authenticated user.
+
+- The card only reads the configured entities and, for the 24-hour history, the Recorder history through Home Assistant.
+- The card never calls a service and never sends commands.
+- The card does not include advertising, analytics, telemetry, or user-tracking services.
+
+**Presence Lens Card is not a certified safety, intrusion detection or access control system.** The result only reflects the state reported by your sensor.
+
+Unknown, unavailable, or missing information must not be interpreted as confirmation that nobody is present.
 
 ## Copyright & License
 
-Copyright © 2026 luigi-regolo
+Copyright © 2026 luigi-regolo.
 
-Original project created and maintained by luigi-regolo.
+Original project created and maintained by **luigi-regolo**.
 
-Distributed under the terms of the GNU General Public License version 3 only (GPL-3.0-only). See the LICENSE file for the full terms.
+Licensed under the **GNU General Public License version 3 only (GPL-3.0-only)**.
+
+See the [LICENSE](LICENSE) file for the complete license terms.
+
+The software is provided without warranty to the extent permitted by applicable law.
