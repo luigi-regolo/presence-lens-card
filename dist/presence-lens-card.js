@@ -1,8 +1,9 @@
 /**
  * Presence Lens Card — Home Assistant dashboard card. Version 1.0
  * Copyright (c) 2026 luigi-regolo. SPDX-License-Identifier: GPL-3.0-only.
- * Read-only card for presence and radar sensors: state, time since the last change,
- * mini radar of the detected distance and a 24-hour history popup. No commands are ever sent.
+ * Card for presence and radar sensors: state, time since the last change, mini radar of the
+ * detected distance and a 24-hour history popup. The only commands it can send are number.set_value
+ * calls for the radar settings, after the user unlocks the padlock in the popup and taps - or + (can be turned off).
  * No external scripts, fonts, analytics or assets.
  */
 (() => {
@@ -29,12 +30,12 @@
       details: 'Dettagli e stato', popup_title: 'Dettagli presenza', close: 'Chiudi',
       last24: 'Ultime 24 ore', detections: 'rilevazioni', summary: 'Riepilogo 24 ore',
       m_det: 'Rilevazioni', m_occ: 'Occupazione', m_off: 'Assenza più lunga', m_last: 'Ultima presenza', ongoing: 'In corso',
-      sensor_sec: 'Sensore', readonly: 'Sola lettura', d_now: 'Distanza attuale', d_min: 'Distanza minima', d_max: 'Distanza massima', sens: 'Sensibilità',
+      sensor_sec: 'Sensore', readonly: 'Sola lettura', editing: 'Modifica attiva', unlock_hint: 'Tocca per sbloccare la modifica', lock_hint: 'Tocca per tornare in sola lettura', d_now: 'Distanza attuale', d_min: 'Distanza minima', d_max: 'Distanza massima', sens: 'Sensibilità',
       last_change: 'Ultimo cambio', radar_note: 'Il sensore misura solo la distanza, non la direzione: il radar evidenzia l’arco alla distanza rilevata.',
       na_note: 'Lo stato non disponibile non viene mai trattato come assenza di persone.',
       history: 'Cronologia', f_all: 'Tutto', f_on: 'Presenza', f_off: 'Assenza', f_na: 'Non disponibile',
       ev_on: 'Presenza rilevata', ev_off: 'Nessuna presenza', ev_na: 'Non disponibile', in_progress: 'in corso',
-      no_hist: 'Storico non disponibile. Serve Recorder con la cronologia abilitata.', no_events: 'Nessun evento per questo filtro.', show_all: 'Mostra tutta la cronologia', show_less: 'Mostra meno', n_events: 'eventi',
+      no_hist: 'Storico non disponibile. Serve Recorder con la cronologia abilitata.', no_events: 'Nessun evento per questo filtro.', show_all: 'Mostra tutta la cronologia', show_less: 'Mostra meno', n_events: 'eventi', dec: 'Diminuisci', inc: 'Aumenta', edit_fail: 'Modifica non riuscita. Riprova.',
       no_target: 'Nessun bersaglio', na_radar: 'Sensore non disponibile', today: 'Oggi', yesterday: 'Ieri',
       example: 'Esempio', missing: 'Entità non trovata', missing_hint: 'Controlla l’entità nella configurazione della card:',
       u_min: 'min', u_h: 'h', u_d: 'g', radar_alt_on: 'Radar: bersaglio a', radar_alt_off: 'Radar: nessun bersaglio', radar_alt_na: 'Radar: sensore non disponibile',
@@ -50,12 +51,12 @@
       details: 'Details and status', popup_title: 'Presence details', close: 'Close',
       last24: 'Last 24 hours', detections: 'detections', summary: '24-hour summary',
       m_det: 'Detections', m_occ: 'Occupancy', m_off: 'Longest absence', m_last: 'Last presence', ongoing: 'Ongoing',
-      sensor_sec: 'Sensor', readonly: 'Read only', d_now: 'Current distance', d_min: 'Minimum distance', d_max: 'Maximum distance', sens: 'Sensitivity',
+      sensor_sec: 'Sensor', readonly: 'Read only', editing: 'Editing on', unlock_hint: 'Tap to unlock editing', lock_hint: 'Tap to go back to read-only', d_now: 'Current distance', d_min: 'Minimum distance', d_max: 'Maximum distance', sens: 'Sensitivity',
       last_change: 'Last change', radar_note: 'The sensor only measures distance, not direction: the radar highlights the arc at the detected distance.',
       na_note: 'An unavailable state is never treated as nobody being there.',
       history: 'History', f_all: 'All', f_on: 'Presence', f_off: 'Absence', f_na: 'Unavailable',
       ev_on: 'Presence detected', ev_off: 'No presence', ev_na: 'Unavailable', in_progress: 'ongoing',
-      no_hist: 'History not available. It needs Recorder with history enabled.', no_events: 'No events for this filter.', show_all: 'Show full history', show_less: 'Show less', n_events: 'events',
+      no_hist: 'History not available. It needs Recorder with history enabled.', no_events: 'No events for this filter.', show_all: 'Show full history', show_less: 'Show less', n_events: 'events', dec: 'Decrease', inc: 'Increase', edit_fail: 'Could not change the value. Try again.',
       no_target: 'No target', na_radar: 'Sensor unavailable', today: 'Today', yesterday: 'Yesterday',
       example: 'Example', missing: 'Entity not found', missing_hint: 'Check the entity in the card configuration:',
       u_min: 'min', u_h: 'h', u_d: 'd', radar_alt_on: 'Radar: target at', radar_alt_off: 'Radar: no target', radar_alt_na: 'Radar: sensor unavailable',
@@ -67,7 +68,7 @@
   const DEFAULTS = {
     entity: '', name: '', distance_entity: '', min_distance_entity: '', max_distance_entity: '', sensitivity_entity: '',
     eyebrow: 'PRESENCE LENS CARD', title: '', occupancy_label: '', show_eyebrow: true, show_title: true,
-    theme_mode: 'auto', panel: 'radar', show_strip: false, since_format: 'duration', radar_max: 0
+    theme_mode: 'auto', panel: 'radar', show_strip: false, since_format: 'duration', radar_max: 0, allow_edit: true
   };
   const PRESENCE_CLASSES = ['presence', 'occupancy', 'motion'];
 
@@ -88,6 +89,7 @@
     c.show_eyebrow = c.show_eyebrow !== false;
     c.show_title = c.show_title !== false;
     c.show_strip = c.show_strip === true;
+    c.allow_edit = c.allow_edit !== false;
     if (['auto', 'light', 'dark'].indexOf(c.theme_mode) < 0) c.theme_mode = 'auto';
     if (['radar', 'tiles', 'none'].indexOf(c.panel) < 0) c.panel = 'radar';
     if (['duration', 'time'].indexOf(c.since_format) < 0) c.since_format = 'duration';
@@ -300,8 +302,9 @@ ha-icon{display:block;flex:none;margin:0;--mdc-icon-size:20px;width:20px;height:
 .box{background:var(--tile);border:1px solid var(--line);border-radius:24px;padding:14px;display:grid;gap:10px;align-content:start;min-width:0}
 .bh{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 4px;min-height:20px}
 .bt{font-size:10px;letter-spacing:1.3px;font-weight:600;text-transform:uppercase;color:var(--muted)}
-.tag{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:2px 9px;background:var(--bg)}
-.tag ha-icon{--mdc-icon-size:13px;width:13px;height:13px}
+.tag{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;line-height:16px;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:2px 9px;background:var(--bg)}
+.tag ha-icon{--mdc-icon-size:13px;width:13px;height:13px;flex:none;display:inline-flex;align-items:center;justify-content:center}
+.tag span{display:block;line-height:16px}
 .nowrow{display:flex;align-items:center;gap:12px;margin:0 2px}
 .nst{font-size:18px;font-weight:600;line-height:1.25}
 .nsub{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
@@ -309,6 +312,17 @@ ha-icon{display:block;flex:none;margin:0;--mdc-icon-size:20px;width:20px;height:
 .kv{display:flex;align-items:center;gap:10px;min-height:34px;margin:0 4px}
 .ki{flex:none;color:var(--muted)}
 .kl{flex:1 1 auto;min-width:0}
+.b-sensor .kv{gap:8px;min-height:44px}
+.tagb{cursor:pointer;min-height:32px;padding:4px 12px;font-family:inherit}
+.tagb[aria-pressed="true"]{color:var(--fg);border-color:color-mix(in srgb,var(--accent) 45%,transparent);background:color-mix(in srgb,var(--accent) 14%,transparent)}
+.b-sensor .kl{font-size:15px}
+.stp{display:inline-flex;align-items:center;gap:4px;flex:none}
+.stp .kvv{min-width:46px;text-align:center;white-space:nowrap}
+.sb{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;padding:0;border-radius:50%;border:1px solid var(--line);background:var(--bg);color:var(--fg);cursor:pointer}
+.sb[disabled]{opacity:.4;cursor:default}
+.sb ha-icon{--mdc-icon-size:18px;width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center}
+.edmsg{display:flex;align-items:center;gap:8px;margin:6px 4px 0;font-size:12.5px;font-weight:600;color:var(--fg)}
+.edmsg ha-icon{--mdc-icon-size:18px;width:18px;height:18px;flex:none;color:var(--muted)}
 .kvv{font-weight:600;font-variant-numeric:tabular-nums;text-align:right}
 .axis{position:relative;height:16px;margin:0 2px;font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
 .axis span{position:absolute;top:0;transform:translateX(-50%);white-space:nowrap}
@@ -341,9 +355,10 @@ ha-icon{display:block;flex:none;margin:0;--mdc-icon-size:20px;width:20px;height:
       this.shadowRoot.innerHTML = '<style>' + CARD_CSS + '</style><div id="r"></div>';
       this._root = this.shadowRoot.getElementById('r');
       this._cfg = null; this._hass = null; this._sig = null;
-      this._popup = false; this._filter = 'all'; this._histAll = false; this._focus = '';
+      this._popup = false; this._filter = 'all'; this._histAll = false; this._unlock = false; this._focus = '';
       this._hist = null; this._histAt = 0; this._histFail = 0; this._histBusy = false; this._histVer = 0;
       this._wide = false; this._timer = null;
+      this._pend = {}; this._editErr = ''; this._sc = null; this._unlock = false;
       this._onKey = (e) => this._key(e);
       this._onResize = () => { if (this._popup && this._layoutWide() !== this._wide) this._render(); };
       this.shadowRoot.addEventListener('click', (e) => this._click(e));
@@ -361,6 +376,7 @@ ha-icon{display:block;flex:none;margin:0;--mdc-icon-size:20px;width:20px;height:
 
     setConfig(config) {
       this._cfg = normalizeConfig(config);
+      Object.keys(this._pend).forEach((k) => window.clearTimeout(this._pend[k].t)); this._pend = {}; this._editErr = '';
       this._hist = null; this._histAt = 0; this._histFail = 0; this._sig = null;
       this._render();
       this._ensureHistory(true);
@@ -369,6 +385,7 @@ ha-icon{display:block;flex:none;margin:0;--mdc-icon-size:20px;width:20px;height:
     set hass(h) {
       this._hass = h;
       if (!this._cfg) return;
+      this._syncPend();
       const sig = this._signature();
       if (sig === this._sig) return;
       this._sig = sig;
@@ -599,10 +616,28 @@ ha-icon{display:block;flex:none;margin:0;--mdc-icon-size:20px;width:20px;height:
       }
       const rows = [];
       if (m.hasDist) rows.push(kv('mdi:ruler', T.d_now, m.state === 'on' && m.dist != null ? this._fmtM(m.dist) : '—'));
-      if (m.hasMin) rows.push(kv('mdi:ruler', T.d_min, this._fmtM(m.min)));
-      if (m.hasMax) rows.push(kv('mdi:ruler', T.d_max, this._fmtM(m.max)));
-      if (m.hasSens && m.sens != null) rows.push(kv('mdi:tune-variant', T.sens, m.sens));
-      if (rows.length) h += '<section class="box b-sensor"><div class="bh"><span class="bt">' + esc(T.sensor_sec) + '</span><span class="tag">' + ic('mdi:lock-outline') + esc(T.readonly) + '</span></div>' + rows.join('') + '</section>';
+      let canEdit = 0;
+      const kvE = (icn, label, key, info) => {
+        const sb = (dir, name, icon, off) => '<button type="button" class="sb" data-step="' + key + '" data-dir="' + dir + '" aria-label="' + esc(name + ' — ' + label) + '"' + (off ? ' disabled' : '') + '>' + ic(icon) + '</button>';
+        return '<div class="kv ed"><span class="ki">' + ic(icn) + '</span><span class="kl">' + esc(label) + '</span><span class="stp">' +
+          sb(-1, T.dec, 'mdi:minus', info.cur <= info.min) + '<span class="kvv">' + esc(this._editText(key, info)) + '</span>' + sb(1, T.inc, 'mdi:plus', info.cur >= info.max) + '</span></div>';
+      };
+      const row = (has, key, icn, label, ro) => {
+        if (!has) return;
+        const info = this._editInfo(key);
+        if (info) canEdit++;
+        rows.push(info && this._unlock ? kvE(icn, label, key, info) : kv(icn, label, info ? this._editText(key, info) : ro));
+      };
+      row(m.hasMin, 'min_distance_entity', 'mdi:ruler', T.d_min, this._fmtM(m.min));
+      row(m.hasMax, 'max_distance_entity', 'mdi:ruler', T.d_max, this._fmtM(m.max));
+      row(m.hasSens && m.sens != null, 'sensitivity_entity', 'mdi:tune-variant', T.sens, m.sens);
+      if (rows.length) {
+        h += '<section class="box b-sensor"><div class="bh"><span class="bt">' + esc(T.sensor_sec) + '</span>' +
+          (canEdit
+            ? '<button type="button" class="tag tagb" data-unlock="1" aria-pressed="' + (this._unlock ? 'true' : 'false') + '" aria-label="' + esc(this._unlock ? T.lock_hint : T.unlock_hint) + '">' + ic(this._unlock ? 'mdi:lock-open-variant-outline' : 'mdi:lock-outline') + '<span>' + esc(this._unlock ? T.editing : T.readonly) + '</span></button>'
+            : '<span class="tag">' + ic('mdi:lock-outline') + '<span>' + esc(T.readonly) + '</span></span>') + '</div>' + rows.join('') +
+          (this._editErr ? '<div class="edmsg" role="status">' + ic('mdi:alert-circle-outline') + '<span>' + esc(this._editErr) + '</span></div>' : '') + '</section>';
+      }
       if (hasH) {
         h += '<section class="box b-tl"><div class="bh"><span class="bt">' + esc(T.last24) + '</span></div>' + this._stripHTML(m, T) + '</section>' +
           '<section class="box b-hist"><div class="bh"><span class="bt">' + esc(T.history) + '</span></div><div class="chips" role="group" aria-label="' + esc(T.history_filter) + '">' +
@@ -622,7 +657,7 @@ ha-icon{display:block;flex:none;margin:0;--mdc-icon-size:20px;width:20px;height:
       const m = this._model();
       const body = this._root.querySelector('.mbody');
       const top = body ? body.scrollTop : 0;
-      const act = this.shadowRoot.activeElement ? this.shadowRoot.activeElement.id || (this.shadowRoot.activeElement.dataset && this.shadowRoot.activeElement.dataset.filter ? 'f-' + this.shadowRoot.activeElement.dataset.filter : (this.shadowRoot.activeElement.dataset && this.shadowRoot.activeElement.dataset.more ? 'more' : '')) : '';
+      const act = this.shadowRoot.activeElement ? this.shadowRoot.activeElement.id || (this.shadowRoot.activeElement.dataset && this.shadowRoot.activeElement.dataset.filter ? 'f-' + this.shadowRoot.activeElement.dataset.filter : (this.shadowRoot.activeElement.dataset && this.shadowRoot.activeElement.dataset.more ? 'more' : (this.shadowRoot.activeElement.dataset && this.shadowRoot.activeElement.dataset.unlock ? 'unlock' : this.shadowRoot.activeElement.dataset && this.shadowRoot.activeElement.dataset.step ? 'st|' + this.shadowRoot.activeElement.dataset.step + '|' + this.shadowRoot.activeElement.dataset.dir : ''))) : '';
       if (this._popup) this._wide = this._layoutWide();
       this._root.innerHTML = this._cardHTML(m) + (this._popup && !m.missing ? this._popupHTML(m) : '');
       if (this._popup) {
@@ -634,7 +669,9 @@ ha-icon{display:block;flex:none;margin:0;--mdc-icon-size:20px;width:20px;height:
       if (want) {
         let el = null;
         if (want.indexOf('f-') === 0) el = this._root.querySelector('[data-filter="' + want.slice(2) + '"]');
+        else if (want === 'unlock') el = this._root.querySelector('[data-unlock]');
         else if (want === 'more') el = this._root.querySelector('[data-more]');
+        else if (want.indexOf('st|') === 0) { const w = want.split('|'); el = this._root.querySelector('[data-step="' + w[1] + '"][data-dir="' + w[2] + '"]'); }
         else el = this.shadowRoot.getElementById(want);
         if (el) el.focus({ preventScroll: true });
       }
@@ -642,12 +679,14 @@ ha-icon{display:block;flex:none;margin:0;--mdc-icon-size:20px;width:20px;height:
 
     /* ---- interaction ---- */
     _click(e) {
-      const t = e.target && e.target.closest ? e.target.closest('[data-open],[data-close],[data-filter],[data-more],[data-backdrop]') : null;
+      const t = e.target && e.target.closest ? e.target.closest('[data-open],[data-close],[data-filter],[data-more],[data-step],[data-unlock],[data-backdrop]') : null;
       if (!t) return;
       if (t.dataset.backdrop) { if (e.target === t) this._closePopup(); return; }
       if (t.dataset.open) { this._openPopup(); return; }
       if (t.dataset.close) { this._closePopup(); return; }
       if (t.dataset.filter) { this._filter = t.dataset.filter; this._histAll = false; this._focus = 'f-' + t.dataset.filter; this._render(); return; }
+      if (t.dataset.unlock) { this._unlock = !this._unlock; this._editErr = ''; this._focus = 'unlock'; this._render(); return; }
+      if (t.dataset.step) { this._step(t.dataset.step, parseInt(t.dataset.dir, 10) < 0 ? -1 : 1); return; }
       if (t.dataset.more) {
         const collapse = this._histAll;
         this._histAll = !this._histAll; this._focus = 'more'; this._render();
@@ -656,6 +695,60 @@ ha-icon{display:block;flex:none;margin:0;--mdc-icon-size:20px;width:20px;height:
           if (nb && hb) nb.scrollTop = Math.max(0, nb.scrollTop + hb.getBoundingClientRect().top - nb.getBoundingClientRect().top - 8);
         }
       }
+    }
+    /* ---- editing the radar settings from the popup (number entities only) ---- */
+    _editInfo(key) {
+      const c = this._cfg, h = this._hass;
+      if (!c || !c.allow_edit || !h || !h.states || typeof h.callService !== 'function') return null;
+      const id = c[key];
+      if (!id || id.split('.')[0] !== 'number') return null;
+      const st = h.states[id];
+      if (!st) return null;
+      const real = parseFloat(st.state);
+      if (!isFinite(real)) return null;
+      const a = st.attributes || {}, p = this._pend[key];
+      const stp = parseFloat(a.step), mn = parseFloat(a.min), mx = parseFloat(a.max);
+      return { id: id, cur: p ? p.val : real, step: stp > 0 ? stp : 1, min: isFinite(mn) ? mn : -Infinity, max: isFinite(mx) ? mx : Infinity, unit: a.unit_of_measurement };
+    }
+    _editText(key, info) {
+      if (key === 'sensitivity_entity') return this._nf(2).format(info.cur);
+      return this._fmtM(toMeters({ state: String(info.cur), attributes: { unit_of_measurement: info.unit } }));
+    }
+    _syncPend() {
+      const h = this._hass; let gone = false;
+      Object.keys(this._pend).forEach((k) => {
+        const p = this._pend[k], st = h && h.states && this._cfg[k] ? h.states[this._cfg[k]] : null;
+        if (p.sent && st && Math.abs(parseFloat(st.state) - p.val) < 1e-9) { window.clearTimeout(p.t); delete this._pend[k]; gone = true; }
+      });
+      if (gone) this._sig = null;
+    }
+    _step(key, dir) {
+      const info = this._editInfo(key);
+      if (!info) return;
+      const dec = (String(info.step).split('.')[1] || '').length, curDec = (String(info.cur).split('.')[1] || '').length;
+      let v = Math.min(info.max, Math.max(info.min, info.cur + dir * info.step));
+      v = Number(v.toFixed(Math.min(8, Math.max(dec, curDec))));
+      if (v === info.cur) return;
+      const p = this._pend[key] || (this._pend[key] = {});
+      window.clearTimeout(p.t);
+      p.val = v; p.sent = false; this._editErr = '';
+      p.t = window.setTimeout(() => this._send(key), 600);   // one command for a burst of taps
+      this._focus = 'st|' + key + '|' + dir; this._render();
+    }
+    _send(key) {
+      const p = this._pend[key], h = this._hass, id = this._cfg && this._cfg[key];
+      if (!p || !h || !id) return;
+      const val = p.val; p.sent = true;
+      const fail = () => {
+        if (this._pend[key] === p) delete this._pend[key];
+        this._editErr = this._T().edit_fail; this._sig = null; this._render();
+        window.setTimeout(() => { this._editErr = ''; this._render(); }, 4000);
+      };
+      let res;
+      try { res = h.callService('number', 'set_value', { entity_id: id, value: val }); } catch (e) { fail(); return; }
+      Promise.resolve(res).then(() => {
+        window.setTimeout(() => { if (this._pend[key] === p && p.val === val) { delete this._pend[key]; this._sig = null; this._render(); } }, 4000);
+      }, fail);
     }
     // Scrollable ancestors of the card (crossing shadow roots) plus the page: the dashboard behind the popup is locked,
     // so whatever they scroll to while the popup is open must still be there when it closes.
@@ -688,14 +781,14 @@ ha-icon{display:block;flex:none;margin:0;--mdc-icon-size:20px;width:20px;height:
     }
     _openPopup() {
       this._sc = this._scrollers();
-      this._popup = true; this._filter = 'all'; this._histAll = false; this._focus = 'close'; this._wide = this._layoutWide();
+      this._popup = true; this._filter = 'all'; this._histAll = false; this._unlock = false; this._focus = 'close'; this._wide = this._layoutWide();
       document.addEventListener('keydown', this._onKey, true);
       this._render();
       this._ensureHistory(false);
     }
     _closePopup() {
       if (!this._popup) return;
-      this._popup = false;
+      this._popup = false; this._unlock = false;
       document.removeEventListener('keydown', this._onKey, true);
       // only the popup is taken away: the card underneath is not rebuilt, so the page behind it has no reason to move
       const bd = this._root.querySelector('.backdrop'), op = this.shadowRoot.getElementById('open');
@@ -791,7 +884,7 @@ button,input,select{font:inherit;color:inherit}
       return '<div class="row"><label for="' + id + '">' + esc(label) + (help ? '<div class="muted">' + esc(help) + '</div>' : '') + '</label><input type="checkbox" id="' + id + '" ' + (on ? 'checked' : '') + '></div>';
     }
     _opts(list, cur) { return list.map((o) => '<option value="' + o[0] + '" ' + (cur === o[0] ? 'selected' : '') + '>' + esc(o[1]) + '</option>').join(''); }
-    _tabSensor(it) {
+    _tabSensor(n, it) {
       return '<div class="heading">' + (it ? 'Sensore di presenza' : 'Presence sensor') + '</div><div class="desc">' + (it
         ? 'Scegli il sensore di presenza. Se non ne scegli nessuno la card mostra un esempio. Gli altri campi sono facoltativi: se manca un’entità, la relativa informazione non viene mostrata.'
         : 'Choose the presence sensor. With none selected the card shows an example. The other fields are optional: if an entity is missing, its information is simply not shown.') + '</div>' +
@@ -803,7 +896,10 @@ button,input,select{font:inherit;color:inherit}
         this._fieldHTML(it ? 'Distanza rilevata' : 'Detected distance', '<div data-slot="distance_entity"></div>') +
         this._fieldHTML(it ? 'Distanza minima di rilevamento' : 'Minimum detection distance', '<div data-slot="min_distance_entity"></div>') +
         this._fieldHTML(it ? 'Distanza massima di rilevamento' : 'Maximum detection distance', '<div data-slot="max_distance_entity"></div>') +
-        this._fieldHTML(it ? 'Sensibilità' : 'Sensitivity', '<div data-slot="sensitivity_entity"></div>');
+        this._fieldHTML(it ? 'Sensibilità' : 'Sensitivity', '<div data-slot="sensitivity_entity"></div>') +
+        this._checkHTML('allow-edit', it ? 'Consenti di sbloccare la modifica dal popup' : 'Allow unlocking editing from the popup', it
+          ? 'Il popup si apre in sola lettura; toccando il catenaccio compaiono − e + per distanza minima, massima e sensibilità (entità number). Attiva di default; disattivala per lasciare il popup sempre in sola lettura.'
+          : 'The popup opens read-only; tapping the padlock shows − and + for the minimum distance, maximum distance and sensitivity (number entities). On by default; turn it off to keep the popup always read-only.', n.allow_edit);
     }
     _tabLook(n, it) {
       return '<div class="heading">' + (it ? 'Aspetto Edera' : 'Edera look') + '</div><div class="desc">' + (it ? 'Titolo, intestazione e tema, coerenti con le altre card.' : 'Title, label and theme, consistent with the other cards.') + '</div>' +
@@ -820,7 +916,7 @@ button,input,select{font:inherit;color:inherit}
         this._checkHTML('show-strip', it ? 'Striscia delle ultime 24 ore' : 'Last 24 hours strip', it ? 'Spenta di default: aumenta l’altezza della card.' : 'Off by default: it makes the card taller.', n.show_strip) +
         this._fieldHTML(it ? 'Formato di «Assente da»' : '“Absent for” format', '<select class="input" id="since">' + this._opts([['duration', it ? 'Durata (3 h 20 min)' : 'Duration (3 h 20 min)'], ['time', it ? 'Orario (dalle 15:35)' : 'Time (since 15:35)']], n.since_format) + '</select>') +
         this._fieldHTML(it ? 'Portata del radar in metri (0 = automatica)' : 'Radar range in metres (0 = automatic)', '<input class="input" type="number" id="rmax" min="0" max="100" step="0.5" value="' + n.radar_max + '">', it ? 'Usata solo se non è scelta un’entità con la distanza massima; senza, il radar usa 6 m.' : 'Only used when no maximum distance entity is selected; otherwise the radar uses 6 m.') +
-        '<div class="muted" style="margin-top:18px">' + (it ? 'La card è di sola lettura: non invia mai comandi. Uno stato non disponibile non conta mai come assenza.' : 'The card is read-only: it never sends commands. An unavailable state never counts as absence.') + '</div>';
+        '<div class="muted" style="margin-top:18px">' + (it ? 'La card invia comandi solo quando sblocchi il catenaccio nel popup e tocchi − o + (e solo se la modifica è consentita). Uno stato non disponibile non conta mai come assenza.' : 'The card sends commands only when you unlock the padlock in the popup and tap − or + (and only if editing is allowed). An unavailable state never counts as absence.') + '</div>';
     }
     _mount(slot, selector, value, cb) {
       if (!slot) return;
@@ -835,7 +931,7 @@ button,input,select{font:inherit;color:inherit}
       const tabs = [['sensor', it ? 'Sensore' : 'Sensor'], ['look', it ? 'Aspetto' : 'Look'], ['panel', it ? 'Contenuto' : 'Content']];
       this.shadowRoot.innerHTML = '<style>' + EDITOR_CSS + '</style><div class="ed"><div class="tabs" role="group" aria-label="' + (it ? 'Sezioni' : 'Sections') + '">' +
         tabs.map((a) => '<button type="button" class="tab" data-tab="' + a[0] + '" id="t-' + a[0] + '" aria-pressed="' + (t === a[0]) + '">' + a[1] + '</button>').join('') + '</div>' +
-        (t === 'sensor' ? this._tabSensor(it) : t === 'look' ? this._tabLook(n, it) : this._tabPanel(n, it)) + '</div>';
+        (t === 'sensor' ? this._tabSensor(n, it) : t === 'look' ? this._tabLook(n, it) : this._tabPanel(n, it)) + '</div>';
       this._built = true;
       if (t === 'sensor') {
         const sl = (name) => this.shadowRoot.querySelector('[data-slot="' + name + '"]');
@@ -853,6 +949,7 @@ button,input,select{font:inherit;color:inherit}
       if (el.id === 'show-eyebrow') { c.show_eyebrow = el.checked; this._emit(c); return; }
       if (el.id === 'show-title') { c.show_title = el.checked; this._emit(c); return; }
       if (el.id === 'show-strip') { c.show_strip = el.checked; this._emit(c); return; }
+      if (el.id === 'allow-edit') { c.allow_edit = el.checked; this._emit(c); return; }
       if (el.id === 'theme') { c.theme_mode = el.value; this._emit(c); return; }
       if (el.id === 'panel') { c.panel = el.value; this._emit(c); return; }
       if (el.id === 'since') { c.since_format = el.value; this._emit(c); return; }
