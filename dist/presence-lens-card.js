@@ -13,6 +13,8 @@
   const EDITOR_TAG = 'presence-lens-card-editor';
   const IS_PHONE = Math.min(window.screen ? window.screen.width : 9999, window.screen ? window.screen.height : 9999) < 600;
   const DAY = 86400000;
+  const EV_FOLD = 5;             // events shown in the popup before "Show full history"
+  const EV_MAX = 300;            // upper bound of the expanded list
   const HIST_REFRESH = 300000;   // history is requested at most every 5 minutes (60 s when the popup opens)
   const HIST_RETRY = 600000;     // after a failed request, wait 10 minutes before trying again
 
@@ -32,7 +34,7 @@
       na_note: 'Lo stato non disponibile non viene mai trattato come assenza di persone.',
       history: 'Cronologia', f_all: 'Tutto', f_on: 'Presenza', f_off: 'Assenza', f_na: 'Non disponibile',
       ev_on: 'Presenza rilevata', ev_off: 'Nessuna presenza', ev_na: 'Non disponibile', in_progress: 'in corso',
-      no_hist: 'Storico non disponibile. Serve Recorder con la cronologia abilitata.', no_events: 'Nessun evento per questo filtro.',
+      no_hist: 'Storico non disponibile. Serve Recorder con la cronologia abilitata.', no_events: 'Nessun evento per questo filtro.', show_all: 'Mostra tutta la cronologia', show_less: 'Mostra meno', n_events: 'eventi',
       no_target: 'Nessun bersaglio', na_radar: 'Sensore non disponibile', today: 'Oggi', yesterday: 'Ieri',
       example: 'Esempio', missing: 'Entità non trovata', missing_hint: 'Controlla l’entità nella configurazione della card:',
       u_min: 'min', u_h: 'h', u_d: 'g', radar_alt_on: 'Radar: bersaglio a', radar_alt_off: 'Radar: nessun bersaglio', radar_alt_na: 'Radar: sensore non disponibile',
@@ -53,7 +55,7 @@
       na_note: 'An unavailable state is never treated as nobody being there.',
       history: 'History', f_all: 'All', f_on: 'Presence', f_off: 'Absence', f_na: 'Unavailable',
       ev_on: 'Presence detected', ev_off: 'No presence', ev_na: 'Unavailable', in_progress: 'ongoing',
-      no_hist: 'History not available. It needs Recorder with history enabled.', no_events: 'No events for this filter.',
+      no_hist: 'History not available. It needs Recorder with history enabled.', no_events: 'No events for this filter.', show_all: 'Show full history', show_less: 'Show less', n_events: 'events',
       no_target: 'No target', na_radar: 'Sensor unavailable', today: 'Today', yesterday: 'Yesterday',
       example: 'Example', missing: 'Entity not found', missing_hint: 'Check the entity in the card configuration:',
       u_min: 'min', u_h: 'h', u_d: 'd', radar_alt_on: 'Radar: target at', radar_alt_off: 'Radar: no target', radar_alt_na: 'Radar: sensor unavailable',
@@ -227,7 +229,7 @@ ha-icon{display:block;flex:none;margin:0;--mdc-icon-size:20px;width:20px;height:
 .sbox .strip{height:8px;border-radius:4px}
 .sbox .shd{display:flex;justify-content:space-between;gap:8px;font-size:11px;color:var(--muted)}
 .sbox .shd b{font-weight:600;color:var(--fg)}
-.detail{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:40px;padding:8px 14px;border-radius:999px;font-weight:600;font-size:13.5px;line-height:1.2;color:var(--btn-fg);border:1px solid color-mix(in srgb,var(--accent) 45%,transparent);background:color-mix(in srgb,var(--accent) 12%,transparent)}
+.detail{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:44px;padding:10px 14px;border-radius:999px;font-weight:600;font-size:13.5px;line-height:1.2;color:var(--btn-fg);border:1px solid color-mix(in srgb,var(--accent) 45%,transparent);background:color-mix(in srgb,var(--accent) 12%,transparent)}
 .detail:hover{background:color-mix(in srgb,var(--accent) 22%,transparent)}
 .detail ha-icon{--mdc-icon-size:18px;width:18px;height:18px}
 .err{display:grid;gap:6px}
@@ -318,6 +320,7 @@ ha-icon{display:block;flex:none;margin:0;--mdc-icon-size:20px;width:20px;height:
 .mini .ml{font-size:12px;color:var(--muted)}
 .mini strong{font-size:16px;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .chips{display:flex;flex-wrap:wrap;gap:6px}
+.more{display:block;width:100%;margin:8px 0 0;min-height:40px;border-radius:999px;border:1px solid var(--line);background:var(--bg);color:var(--fg);font:inherit;font-size:13px;font-weight:600;cursor:pointer}
 .chip{min-height:36px;padding:0 14px;border:1px solid var(--line);border-radius:999px;background:var(--bg);color:var(--muted);font-size:13px}
 .chip[aria-pressed="true"]{background:color-mix(in srgb,var(--accent) 14%,transparent);border-color:color-mix(in srgb,var(--accent) 45%,transparent);color:var(--fg);font-weight:600}
 .evs{display:grid;gap:8px}
@@ -338,7 +341,7 @@ ha-icon{display:block;flex:none;margin:0;--mdc-icon-size:20px;width:20px;height:
       this.shadowRoot.innerHTML = '<style>' + CARD_CSS + '</style><div id="r"></div>';
       this._root = this.shadowRoot.getElementById('r');
       this._cfg = null; this._hass = null; this._sig = null;
-      this._popup = false; this._filter = 'all'; this._focus = '';
+      this._popup = false; this._filter = 'all'; this._histAll = false; this._focus = '';
       this._hist = null; this._histAt = 0; this._histFail = 0; this._histBusy = false; this._histVer = 0;
       this._wide = false; this._timer = null;
       this._onKey = (e) => this._key(e);
@@ -558,14 +561,19 @@ ha-icon{display:block;flex:none;margin:0;--mdc-icon-size:20px;width:20px;height:
     _eventsHTML(m, T) {
       let list = m.segs.slice().reverse();
       if (this._filter !== 'all') list = list.filter((x) => x.st === this._filter);
+      const total = list.length;
+      if (total > EV_FOLD) list = list.slice(0, this._histAll ? EV_MAX : EV_FOLD);
       if (!list.length) return '<div class="empty">' + ic('mdi:information-outline') + '<span>' + esc(T.no_events) + '</span></div>';
       const last = m.segs[m.segs.length - 1];
-      return '<div class="evs">' + list.slice(0, 60).map((x) => {
+      const more = total > EV_FOLD
+        ? '<button class="more" type="button" data-more="1" aria-expanded="' + (this._histAll ? 'true' : 'false') + '">' + esc(this._histAll ? T.show_less : T.show_all + ' · ' + total + ' ' + T.n_events) + '</button>'
+        : '';
+      return '<div class="evs">' + list.map((x) => {
         const lv = x.st === 'on' ? 'ok' : x.st === 'na' ? 'warn' : 'neutral';
         const icn = x.st === 'on' ? 'mdi:motion-sensor' : x.st === 'na' ? 'mdi:alert-circle-outline' : 'mdi:motion-sensor-off';
         return '<div class="ev"><span class="ico ico-' + lv + '">' + ic(icn) + '</span><div class="evt"><div class="evn">' + esc(T['ev_' + x.st]) + '</div><div class="evs2">' +
           esc(this._clock(x.start, m.now)) + ' · ' + (x === last ? esc(T.in_progress) + ', ' : '') + esc(this._fmtDur(x.end - x.start)) + '</div></div></div>';
-      }).join('') + '</div>';
+      }).join('') + more + '</div>';
     }
     _popupHTML(m) {
       const c = this._cfg, T = this._T();
@@ -614,7 +622,7 @@ ha-icon{display:block;flex:none;margin:0;--mdc-icon-size:20px;width:20px;height:
       const m = this._model();
       const body = this._root.querySelector('.mbody');
       const top = body ? body.scrollTop : 0;
-      const act = this.shadowRoot.activeElement ? this.shadowRoot.activeElement.id || (this.shadowRoot.activeElement.dataset && this.shadowRoot.activeElement.dataset.filter ? 'f-' + this.shadowRoot.activeElement.dataset.filter : '') : '';
+      const act = this.shadowRoot.activeElement ? this.shadowRoot.activeElement.id || (this.shadowRoot.activeElement.dataset && this.shadowRoot.activeElement.dataset.filter ? 'f-' + this.shadowRoot.activeElement.dataset.filter : (this.shadowRoot.activeElement.dataset && this.shadowRoot.activeElement.dataset.more ? 'more' : '')) : '';
       if (this._popup) this._wide = this._layoutWide();
       this._root.innerHTML = this._cardHTML(m) + (this._popup && !m.missing ? this._popupHTML(m) : '');
       if (this._popup) {
@@ -626,6 +634,7 @@ ha-icon{display:block;flex:none;margin:0;--mdc-icon-size:20px;width:20px;height:
       if (want) {
         let el = null;
         if (want.indexOf('f-') === 0) el = this._root.querySelector('[data-filter="' + want.slice(2) + '"]');
+        else if (want === 'more') el = this._root.querySelector('[data-more]');
         else el = this.shadowRoot.getElementById(want);
         if (el) el.focus({ preventScroll: true });
       }
@@ -633,15 +642,53 @@ ha-icon{display:block;flex:none;margin:0;--mdc-icon-size:20px;width:20px;height:
 
     /* ---- interaction ---- */
     _click(e) {
-      const t = e.target && e.target.closest ? e.target.closest('[data-open],[data-close],[data-filter],[data-backdrop]') : null;
+      const t = e.target && e.target.closest ? e.target.closest('[data-open],[data-close],[data-filter],[data-more],[data-backdrop]') : null;
       if (!t) return;
       if (t.dataset.backdrop) { if (e.target === t) this._closePopup(); return; }
       if (t.dataset.open) { this._openPopup(); return; }
       if (t.dataset.close) { this._closePopup(); return; }
-      if (t.dataset.filter) { this._filter = t.dataset.filter; this._focus = 'f-' + t.dataset.filter; this._render(); }
+      if (t.dataset.filter) { this._filter = t.dataset.filter; this._histAll = false; this._focus = 'f-' + t.dataset.filter; this._render(); return; }
+      if (t.dataset.more) {
+        const collapse = this._histAll;
+        this._histAll = !this._histAll; this._focus = 'more'; this._render();
+        if (collapse) { // back to the top of the history so the reader does not end up in the middle of nowhere
+          const nb = this._root.querySelector('.mbody'), hb = this._root.querySelector('.b-hist');
+          if (nb && hb) nb.scrollTop = Math.max(0, nb.scrollTop + hb.getBoundingClientRect().top - nb.getBoundingClientRect().top - 8);
+        }
+      }
+    }
+    // Scrollable ancestors of the card (crossing shadow roots) plus the page: the dashboard behind the popup is locked,
+    // so whatever they scroll to while the popup is open must still be there when it closes.
+    _scrollers() {
+      const out = [];
+      let n = this;
+      while (n) {
+        if (n.nodeType === 1) {
+          const oy = window.getComputedStyle(n).overflowY;
+          if ((oy === 'auto' || oy === 'scroll') && n.scrollHeight > n.clientHeight) out.push([n, n.scrollTop]);
+        }
+        n = n.parentNode || n.host || null;
+      }
+      const se = document.scrollingElement;
+      if (se && !out.some((x) => x[0] === se)) out.push([se, se.scrollTop]);
+      return out;
+    }
+    _restoreScroll() {
+      const saved = this._sc; this._sc = null;
+      if (!saved || !saved.length) return;
+      let stop = false;
+      const halt = () => { stop = true; };
+      window.addEventListener('touchstart', halt, { once: true, passive: true, capture: true });
+      window.addEventListener('wheel', halt, { once: true, passive: true, capture: true });
+      const fix = () => { if (!stop) saved.forEach((x) => { if (Math.abs(x[0].scrollTop - x[1]) > 1) x[0].scrollTop = x[1]; }); };
+      fix();
+      window.requestAnimationFrame(() => { fix(); window.requestAnimationFrame(fix); });
+      window.setTimeout(fix, 150);
+      window.setTimeout(() => { fix(); window.removeEventListener('touchstart', halt, true); window.removeEventListener('wheel', halt, true); }, 400);
     }
     _openPopup() {
-      this._popup = true; this._filter = 'all'; this._focus = 'close'; this._wide = this._layoutWide();
+      this._sc = this._scrollers();
+      this._popup = true; this._filter = 'all'; this._histAll = false; this._focus = 'close'; this._wide = this._layoutWide();
       document.addEventListener('keydown', this._onKey, true);
       this._render();
       this._ensureHistory(false);
@@ -650,7 +697,14 @@ ha-icon{display:block;flex:none;margin:0;--mdc-icon-size:20px;width:20px;height:
       if (!this._popup) return;
       this._popup = false;
       document.removeEventListener('keydown', this._onKey, true);
-      this._focus = 'open'; this._render();
+      // only the popup is taken away: the card underneath is not rebuilt, so the page behind it has no reason to move
+      const bd = this._root.querySelector('.backdrop'), op = this.shadowRoot.getElementById('open');
+      if (bd && op) {
+        op.focus({ preventScroll: true });
+        bd.remove();
+        this._sig = null;
+      } else { this._focus = 'open'; this._render(); }
+      this._restoreScroll();
     }
     // The dashboard behind the popup must not move: scroll gestures that would leave the dialog body are cancelled.
     _lockScroll() {
