@@ -57,18 +57,6 @@ Install Presence Lens Card directly from the default Marketplace catalog in Home
 6. Reload your browser to load the new resource.
 7. Add **Presence Lens Card** to your dashboard and configure it using the visual editor.
 
-### Alternative: Custom repository
-
-If you prefer to add the repository manually:
-
-1. Go to **Settings** > **Marketplace**.
-2. In the upper-right corner, select **Add from link**.
-3. Under **GitHub link**, enter `https://github.com/luigi-regolo/presence-lens-card`.
-4. Select **Add**. If the type is not detected, select **Dashboard** under **Type** and select **Add** again.
-5. Open **Presence Lens Card** and select **Install**.
-
-Adding a repository from a link requires a connected GitHub account. The Marketplace guides you through the connection when needed.
-
 ### Manual installation
 
 1. Download `dist/presence-lens-card.js` from the GitHub repository.
@@ -125,7 +113,6 @@ Presence Lens Card requires:
 
 - Home Assistant with support for custom JavaScript dashboard cards.
 - A presence, occupancy or motion `binary_sensor`.
-- Home Assistant 2026.11 or newer only when installing from the Marketplace.
 
 Occupancy, the 24-hour strip and the event history require the Recorder history of the sensor. Without it these parts are hidden and the card still shows the state and the time since the last change.
 
